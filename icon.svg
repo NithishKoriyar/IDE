@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#080d08"/>
+  <rect x="40" y="40" width="432" height="432" rx="60" fill="#0c1a0c" stroke="#00ff41" stroke-width="6"/>
+  <text x="256" y="210" font-family="monospace" font-size="120" font-weight="bold" fill="#00ff41" text-anchor="middle">{</text>
+  <text x="256" y="340" font-family="monospace" font-size="72" fill="#00d4ff" text-anchor="middle">JS</text>
+  <text x="256" y="420" font-family="monospace" font-size="36" fill="#008822" text-anchor="middle">CYPH·IDE</text>
+</svg>
