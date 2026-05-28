@@ -1,4 +1,4 @@
-const CACHE = 'cyph-ide-v1';
+const CACHE = 'cyph-ide-v9';
 const ASSETS = [
   './',
   'index.html',

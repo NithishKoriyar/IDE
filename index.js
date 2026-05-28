@@ -184,6 +184,7 @@ function initEditor() {
     indentUnit: 2,
     tabSize: 2,
     indentWithTabs: false,
+    inputStyle: "contenteditable",
     extraKeys: {
       "Ctrl-Enter": runCode,
       "Ctrl-Space": "autocomplete",
@@ -246,11 +247,14 @@ function initEditor() {
   });
 
   editor.on("inputRead", (cm, change) => {
-    if (change.origin === "+input") {
-      const text = change.text[0];
-      if (/^[a-zA-Z0-9_\.]$/.test(text)) {
-        cm.showHint({ completeSingle: false });
-      }
+    const text = change.text ? change.text.join("") : "";
+    // On mobile virtual keyboards, Gboard/iOS keyboard often triggers multi-character inputs
+    // or does not include standard "+input" origins. We match any word/dot character.
+    if (/[a-zA-Z0-9_\.]$/.test(text)) {
+      cm.showHint({ 
+        completeSingle: false,
+        container: document.body
+      });
     }
   });
 
@@ -268,16 +272,32 @@ function updateStatus() {
 
 // ── SNIPPETS ────────────────────────────────────────────────────
 function initSnippets() {
-  document.querySelectorAll("#snip-bar .skey").forEach((k) => {
+  document.querySelectorAll("#snip-bar .skey:not(#btn-snippets)").forEach((k) => {
+    let lt;
+    let didLongPress = false;
+
     k.addEventListener(
       "touchstart",
       (e) => {
         e.preventDefault();
         vibe(12);
-        insertSnip(k.dataset.s);
+        didLongPress = false;
+        lt = setTimeout(() => {
+          showTip(k.dataset.s, k);
+          didLongPress = true;
+        }, 500);
       },
       { passive: false },
     );
+
+    k.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      clearTimeout(lt);
+      if (!didLongPress) {
+        insertSnip(k.dataset.s);
+      }
+    });
+
     k.addEventListener("mousedown", (e) => {
       e.preventDefault();
       insertSnip(k.dataset.s);
@@ -317,13 +337,20 @@ function insertSnip(name) {
   vibe([5, 20, 5]);
 }
 
-function showTip(name) {
+function showTip(name, el) {
   const s = SNIPS[name];
   if (!s) return;
   const tip = document.getElementById("tip");
   document.getElementById("tip-title").textContent = s.t;
   document.getElementById("tip-body").textContent = s.d;
-  tip.style.bottom = "80px";
+
+  const kbd = document.getElementById("kbd");
+  if (kbd) {
+    const kbdY = kbd.getBoundingClientRect().top;
+    tip.style.bottom = (window.innerHeight - kbdY + 8) + "px";
+  } else {
+    tip.style.bottom = "80px";
+  }
   tip.classList.add("show");
   setTimeout(() => tip.classList.remove("show"), 2600);
   vibe([8, 30, 8]);
