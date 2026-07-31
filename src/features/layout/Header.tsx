@@ -45,8 +45,9 @@ export function Header({ isDesktop, onOpenSettings }: HeaderProps) {
   return (
     <header className="flex h-12 w-full shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container px-4">
       <div className="flex items-center gap-6">
-        <span className="text-base font-semibold tracking-wide text-primary">
-          CYPH<span className="text-secondary">·</span>IDE
+        <span className="flex items-center gap-2 text-base font-semibold tracking-wide text-primary">
+          <img src="/icon.svg" alt="CYPH·IDE" className="h-6 w-6" />
+          <span>CYPH<span className="text-secondary">·</span>IDE</span>
         </span>
         <nav className="flex items-center gap-1 rounded-lg bg-surface-container-low p-1">
           {(['javascript', 'sql'] as const).map((lang) => (
