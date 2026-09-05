@@ -39,7 +39,7 @@ export function BottomSheet({ title, onClose, children, headerRight }: BottomShe
         onDragEnd={(_event, info) => {
           if (info.offset.y > 100 || info.velocity.y > 500) onClose()
         }}
-        className="fixed inset-x-0 bottom-0 z-50 flex h-[70vh] flex-col rounded-t-2xl border-t border-outline-variant bg-surface-container shadow-2xl"
+        className="fixed inset-x-0 bottom-0 z-50 flex h-[70dvh] flex-col rounded-t-2xl border-t border-outline-variant bg-surface-container shadow-2xl"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="relative flex shrink-0 cursor-grab touch-none items-center justify-between border-b border-outline-variant px-4 py-2.5 active:cursor-grabbing">

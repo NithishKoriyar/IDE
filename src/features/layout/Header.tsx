@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Play, Settings as SettingsIcon, Palette, Check, Coffee } from 'lucide-react'
+import { Play, Settings as SettingsIcon, Palette, Check } from 'lucide-react'
 import clsx from 'clsx'
 import { useSettingsStore } from '../../app/store/settingsStore'
 import { useLayoutStore } from '../../app/store/layoutStore'
@@ -121,7 +121,7 @@ export function Header({ isDesktop, onOpenSettings }: HeaderProps) {
           </AnimatePresence>
         </div>
 
-        {/* UI only for now -- no link/action wired up yet. */}
+        {/* Buy Me a Coffee -- UI only for now, no link/action wired up yet. Commented out until ready to launch.
         <button
           type="button"
           aria-label="Buy me a coffee"
@@ -130,6 +130,7 @@ export function Header({ isDesktop, onOpenSettings }: HeaderProps) {
           <Coffee size={16} />
           <span className="hidden sm:inline">Buy me a coffee</span>
         </button>
+        */}
 
         <button
           type="button"

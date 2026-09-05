@@ -21,7 +21,7 @@ const SqlWorkspace = lazy(() =>
 
 function HydrationSplash() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background text-on-surface-variant">
+    <div className="flex h-dvh w-full items-center justify-center bg-background text-on-surface-variant">
       <span className="text-sm">Loading CYPH·IDE…</span>
     </div>
   )
@@ -62,7 +62,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-on-background">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-on-background">
       <Header isDesktop={isDesktop} onOpenSettings={() => setSettingsOpen(true)} />
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
