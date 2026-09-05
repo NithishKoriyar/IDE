@@ -8,6 +8,7 @@ interface JsWorkspaceStore {
   pages: JsPage[]
   nextPageNumber: number
   createPage: () => string
+  closePage: (id: string) => void
   updatePageCode: (id: string, code: string) => void
   setPageLastRun: (id: string, summary: JsRunSummary) => void
 }
@@ -31,6 +32,8 @@ export const useJsWorkspaceStore = create<JsWorkspaceStore>()(
         set((s) => ({ pages: [...s.pages, page], nextPageNumber: s.nextPageNumber + 1 }))
         return id
       },
+      closePage: (id) =>
+        set((s) => (s.pages.length <= 1 ? s : { pages: s.pages.filter((p) => p.id !== id) })),
       updatePageCode: (id, code) =>
         set((s) => ({
           pages: s.pages.map((p) => (p.id === id ? { ...p, code } : p)),

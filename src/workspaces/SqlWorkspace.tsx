@@ -45,6 +45,7 @@ export function SqlWorkspace() {
   const isDesktop = useIsDesktop()
   const pages = useSqlWorkspaceStore((s) => s.pages)
   const createPage = useSqlWorkspaceStore((s) => s.createPage)
+  const closePage = useSqlWorkspaceStore((s) => s.closePage)
   const updatePageQuery = useSqlWorkspaceStore((s) => s.updatePageQuery)
   const setPageLastResult = useSqlWorkspaceStore((s) => s.setPageLastResult)
 
@@ -60,6 +61,20 @@ export function SqlWorkspace() {
   useEffect(() => {
     if (!activeSqlPageId && pages[0]) setActiveSqlPageId(pages[0].id)
   }, [activeSqlPageId, pages, setActiveSqlPageId])
+
+  const handleClosePage = useCallback(
+    (id: string) => {
+      if (pages.length <= 1) return
+      if (id === activeSqlPageId) {
+        const idx = pages.findIndex((p) => p.id === id)
+        const remaining = pages.filter((p) => p.id !== id)
+        const next = remaining[idx] ?? remaining[idx - 1]
+        setActiveSqlPageId(next.id)
+      }
+      closePage(id)
+    },
+    [pages, activeSqlPageId, closePage, setActiveSqlPageId],
+  )
 
   const [query, setQuery] = useState(activePage.query)
   const [liveResult, setLiveResult] = useState<SqlLastResult | null>(activePage.lastResult ?? null)
@@ -190,6 +205,7 @@ export function SqlWorkspace() {
           activePageId={activePage.id}
           onSelect={setActiveSqlPageId}
           onCreate={() => setActiveSqlPageId(createPage())}
+          onClose={handleClosePage}
         />
         <button
           type="button"

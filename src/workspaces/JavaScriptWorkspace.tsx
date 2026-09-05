@@ -24,6 +24,7 @@ export function JavaScriptWorkspace() {
   const isDesktop = useIsDesktop()
   const pages = useJsWorkspaceStore((s) => s.pages)
   const createPage = useJsWorkspaceStore((s) => s.createPage)
+  const closePage = useJsWorkspaceStore((s) => s.closePage)
   const updatePageCode = useJsWorkspaceStore((s) => s.updatePageCode)
   const setPageLastRun = useJsWorkspaceStore((s) => s.setPageLastRun)
 
@@ -40,6 +41,20 @@ export function JavaScriptWorkspace() {
   useEffect(() => {
     if (!activeJsPageId && pages[0]) setActiveJsPageId(pages[0].id)
   }, [activeJsPageId, pages, setActiveJsPageId])
+
+  const handleClosePage = useCallback(
+    (id: string) => {
+      if (pages.length <= 1) return
+      if (id === activeJsPageId) {
+        const idx = pages.findIndex((p) => p.id === id)
+        const remaining = pages.filter((p) => p.id !== id)
+        const next = remaining[idx] ?? remaining[idx - 1]
+        setActiveJsPageId(next.id)
+      }
+      closePage(id)
+    },
+    [pages, activeJsPageId, closePage, setActiveJsPageId],
+  )
 
   const [code, setCode] = useState(activePage.code)
 
@@ -123,6 +138,7 @@ export function JavaScriptWorkspace() {
           activePageId={activePage.id}
           onSelect={setActiveJsPageId}
           onCreate={() => setActiveJsPageId(createPage())}
+          onClose={handleClosePage}
         />
         <button
           type="button"

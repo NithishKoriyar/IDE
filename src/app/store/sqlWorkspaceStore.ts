@@ -8,6 +8,7 @@ interface SqlWorkspaceStore {
   pages: SqlPage[]
   nextPageNumber: number
   createPage: () => string
+  closePage: (id: string) => void
   updatePageQuery: (id: string, query: string) => void
   setPageLastResult: (id: string, result: SqlLastResult) => void
 }
@@ -31,6 +32,8 @@ export const useSqlWorkspaceStore = create<SqlWorkspaceStore>()(
         set((s) => ({ pages: [...s.pages, page], nextPageNumber: s.nextPageNumber + 1 }))
         return id
       },
+      closePage: (id) =>
+        set((s) => (s.pages.length <= 1 ? s : { pages: s.pages.filter((p) => p.id !== id) })),
       updatePageQuery: (id, query) =>
         set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, query } : p)) })),
       setPageLastResult: (id, result) =>

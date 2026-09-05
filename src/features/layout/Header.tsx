@@ -47,7 +47,7 @@ export function Header({ isDesktop, onOpenSettings }: HeaderProps) {
       <div className="flex items-center gap-6">
         <span className="flex items-center gap-2 text-base font-semibold tracking-wide text-primary">
           <img src="/icon.svg" alt="CYPH·IDE" className="h-6 w-6" />
-          <span>CYPH<span className="text-secondary">·</span>IDE</span>
+          <span className="hidden sm:inline">CYPH<span className="text-secondary">·</span>IDE</span>
         </span>
         <nav className="flex items-center gap-1 rounded-lg bg-surface-container-low p-1">
           {(['javascript', 'sql'] as const).map((lang) => (
@@ -62,7 +62,14 @@ export function Header({ isDesktop, onOpenSettings }: HeaderProps) {
                   : 'text-on-surface-variant hover:text-on-surface',
               )}
             >
-              {lang === 'javascript' ? 'JavaScript' : 'SQL'}
+              {lang === 'javascript' ? (
+                <>
+                  <span className="sm:hidden">JS</span>
+                  <span className="hidden sm:inline">JavaScript</span>
+                </>
+              ) : (
+                'SQL'
+              )}
             </button>
           ))}
         </nav>

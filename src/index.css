@@ -23,4 +23,42 @@
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
   }
+
+  /* Thin green scrollbar everywhere, replacing the native OS scrollbar.
+     Chromium ignores ::-webkit-scrollbar rules on any element that also has
+     `scrollbar-width` set, falling back to its own native "thin" rendering
+     (which is much wider than 1px and keeps the arrow buttons) -- so the
+     standard property is scoped to browsers that don't support the legacy
+     pseudo-elements (i.e. Firefox, which has no sub-pixel scrollbar-width
+     and uses `thin` as its closest match to 1px) to avoid that conflict. */
+  @supports not selector(::-webkit-scrollbar) {
+    :root {
+      scrollbar-width: thin;
+      scrollbar-color: #22c55e transparent;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 1px;
+    height: 1px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #22c55e;
+    border-radius: 0;
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
