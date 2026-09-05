@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Group, Panel, Separator, type LayoutChangedMeta, type Layout } from 'react-resizable-panels'
 import { AnimatePresence } from 'motion/react'
-import { Play, Table2, Sparkles } from 'lucide-react'
+import { Play, Table2, Sparkles, RefreshCw, RotateCcw } from 'lucide-react'
+import clsx from 'clsx'
 import { useSqlWorkspaceStore } from '../app/store/sqlWorkspaceStore'
 import { useLayoutStore } from '../app/store/layoutStore'
 import { useSettingsStore } from '../app/store/settingsStore'
+import { useSqlDatabasesStore } from '../app/store/sqlDatabasesStore'
 import { registerRunHandler } from '../app/runRegistry'
 import { useIsDesktop } from '../features/layout/useIsDesktop'
 import { PageTabs } from '../features/layout/PageTabs'
 import { BottomSheet } from '../features/layout/BottomSheet'
 import { MobileActionBar, MobileActionButton } from '../features/layout/MobileActionBar'
+import { ConfirmDialog } from '../features/layout/ConfirmDialog'
+import { InputDialog } from '../features/layout/InputDialog'
 import { CodeMirrorEditor } from '../features/editor/CodeMirrorEditor'
 import { buildSqlLanguageExtension } from '../features/editor/sql/sqlCompletions'
 import { autoCapitalizeKeywords } from '../features/editor/sql/autoCapitalizeKeywords'
 import { useSqlDatabase } from '../features/editor/sql/useSqlDatabase'
 import { SqlResultsPanel } from '../features/editor/sql/SqlResultsPanel'
 import { DatabaseExplorer } from '../features/editor/sql/DatabaseExplorer'
+import { DatabaseSelector } from '../features/editor/sql/DatabaseSelector'
 import { formatSqlCode } from '../features/formatting/formatSql'
-import { runSql } from '../features/editor/sql/sqliteEngine'
+import { runSql, deleteDatabaseStorage } from '../features/editor/sql/sqliteEngine'
+import { DEFAULT_DATABASE_ID, isPresetDatabaseId } from '../features/editor/sql/presets'
+import { LEGACY_DEFAULT_DATABASE_ID } from '../app/store/persistStorage'
 import type { SqlLastResult } from '../app/types'
 import type { SqlRunResult } from '../features/editor/sql/sqliteEngine'
 
@@ -53,6 +60,46 @@ export function SqlWorkspace() {
   const setActiveSqlPageId = useLayoutStore((s) => s.setActiveSqlPageId)
   const panelSizes = useLayoutStore((s) => s.panelSizes)
   const setPanelSizes = useLayoutStore((s) => s.setPanelSizes)
+
+  const activeSqlDatabaseId = useLayoutStore((s) => s.activeSqlDatabaseId)
+  const setActiveSqlDatabaseId = useLayoutStore((s) => s.setActiveSqlDatabaseId)
+  const userDatabases = useSqlDatabasesStore((s) => s.userDatabases)
+  const createUserDatabase = useSqlDatabasesStore((s) => s.createUserDatabase)
+  const deleteUserDatabase = useSqlDatabasesStore((s) => s.deleteUserDatabase)
+
+  useEffect(() => {
+    if (activeSqlDatabaseId) return
+    // Prefer a migrated pre-preset database (continuity for existing work) over defaulting to a preset.
+    const legacy = userDatabases.find((d) => d.id === LEGACY_DEFAULT_DATABASE_ID)
+    setActiveSqlDatabaseId(legacy ? legacy.id : DEFAULT_DATABASE_ID)
+  }, [activeSqlDatabaseId, userDatabases, setActiveSqlDatabaseId])
+
+  const activeDatabaseId = activeSqlDatabaseId ?? DEFAULT_DATABASE_ID
+
+  const [newDatabaseDialogOpen, setNewDatabaseDialogOpen] = useState(false)
+  const [pendingDeleteDatabaseId, setPendingDeleteDatabaseId] = useState<string | null>(null)
+  // Owned here (not inside DatabaseExplorer) since both the desktop panel and
+  // the mobile sheet's own header need to trigger the same confirmation.
+  const [pendingResetDatabase, setPendingResetDatabase] = useState(false)
+
+  const handleCreateDatabase = useCallback(
+    (name: string) => {
+      const id = createUserDatabase(name)
+      setActiveSqlDatabaseId(id)
+      setNewDatabaseDialogOpen(false)
+    },
+    [createUserDatabase, setActiveSqlDatabaseId],
+  )
+
+  const handleDeleteDatabase = useCallback(
+    async (id: string) => {
+      await deleteDatabaseStorage(id)
+      deleteUserDatabase(id)
+      if (activeDatabaseId === id) setActiveSqlDatabaseId(DEFAULT_DATABASE_ID)
+      setPendingDeleteDatabaseId(null)
+    },
+    [deleteUserDatabase, activeDatabaseId, setActiveSqlDatabaseId],
+  )
 
   const sqlSettings = useSettingsStore((s) => s.sql)
 
@@ -102,9 +149,12 @@ export function SqlWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-debounce when the live buffer changes
   }, [query, activePage.id])
 
-  const { schema, tables, runQuery, refreshTables, deleteTable, resetDatabase } = useSqlDatabase()
+  const { isReady, schema, tables, runQuery, refreshTables, deleteTable, resetDatabase } =
+    useSqlDatabase(activeDatabaseId)
+  const canResetDatabase = isPresetDatabaseId(activeDatabaseId)
 
   const handleRun = useCallback(async () => {
+    if (!isReady) return
     let toRun = query
     try {
       toRun = await formatSqlCode(query)
@@ -119,7 +169,7 @@ export function SqlWorkspace() {
     const safe = toJsonSafeResult(result)
     setLiveResult(safe)
     setPageLastResult(activePage.id, safe)
-  }, [query, runQuery, isDesktop, activePage.id, setPageLastResult])
+  }, [isReady, query, runQuery, isDesktop, activePage.id, setPageLastResult])
 
   useEffect(() => registerRunHandler('sql', handleRun), [handleRun])
 
@@ -186,6 +236,10 @@ export function SqlWorkspace() {
     [setPanelSizes],
   )
 
+  // Ghost text only -- guides toward the current database's own tables instead
+  // of shipping a fixed, always-inserted starter query.
+  const editorPlaceholder = tables[0] ? `SELECT * FROM ${tables[0].name};` : 'SELECT * FROM your_table;'
+
   const editor = (
     <CodeMirrorEditor
       docId={activePage.id}
@@ -194,12 +248,18 @@ export function SqlWorkspace() {
       languageExtension={languageExtension}
       onRun={handleRun}
       className="h-full min-h-0 overflow-auto"
+      placeholder={editorPlaceholder}
     />
   )
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low">
+      <div
+        className={clsx(
+          'flex items-center border-b border-outline-variant bg-surface-container-low',
+          isDesktop ? 'justify-between' : 'flex-wrap',
+        )}
+      >
         <PageTabs
           pages={pages}
           activePageId={activePage.id}
@@ -207,14 +267,31 @@ export function SqlWorkspace() {
           onCreate={() => setActiveSqlPageId(createPage())}
           onClose={handleClosePage}
         />
-        <button
-          type="button"
-          onClick={handleFormat}
-          className="mr-2 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+        <div
+          className={clsx(
+            'flex shrink-0 items-center gap-2 pr-2',
+            // On mobile this becomes its own full-width row, spread edge-to-edge:
+            // DatabaseSelector at the left (its dropdown opens left-anchored/
+            // rightward there) and Format at the right.
+            !isDesktop && 'w-full justify-between border-t border-outline-variant py-1',
+          )}
         >
-          <Sparkles size={13} />
-          Format
-        </button>
+          <DatabaseSelector
+            activeDatabaseId={activeDatabaseId}
+            userDatabases={userDatabases}
+            onSelect={setActiveSqlDatabaseId}
+            onCreateNew={() => setNewDatabaseDialogOpen(true)}
+            onDeleteUserDatabase={setPendingDeleteDatabaseId}
+          />
+          <button
+            type="button"
+            onClick={handleFormat}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          >
+            <Sparkles size={13} />
+            Format
+          </button>
+        </div>
       </div>
 
       {isDesktop ? (
@@ -240,7 +317,8 @@ export function SqlWorkspace() {
               onSelectTable={setSelectedTable}
               onDeleteTable={handleDeleteTable}
               onRefresh={refreshTables}
-              onResetDatabase={resetDatabase}
+              onRequestReset={() => setPendingResetDatabase(true)}
+              canReset={canResetDatabase}
             />
           </Panel>
         </Group>
@@ -252,6 +330,32 @@ export function SqlWorkspace() {
               <BottomSheet
                 title={mobileSheet === 'tables' ? 'Tables' : 'Results'}
                 onClose={() => setMobileSheet('closed')}
+                headerRight={
+                  mobileSheet === 'tables' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void refreshTables()
+                        }}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                      >
+                        <RefreshCw size={13} />
+                        Refresh
+                      </button>
+                      {canResetDatabase && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingResetDatabase(true)}
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-error-container/20 hover:text-error"
+                        >
+                          <RotateCcw size={13} />
+                          Reset
+                        </button>
+                      )}
+                    </>
+                  ) : undefined
+                }
               >
                 {mobileSheet === 'tables' ? (
                   <DatabaseExplorer
@@ -262,7 +366,9 @@ export function SqlWorkspace() {
                     onSelectTable={setSelectedTable}
                     onDeleteTable={handleDeleteTable}
                     onRefresh={refreshTables}
-                    onResetDatabase={resetDatabase}
+                    onRequestReset={() => setPendingResetDatabase(true)}
+                    canReset={canResetDatabase}
+                    hideOwnHeaderControls
                   />
                 ) : (
                   <SqlResultsPanel result={liveResult} isRunning={isRunning} />
@@ -288,6 +394,42 @@ export function SqlWorkspace() {
           />
         </MobileActionBar>
       )}
+
+      <AnimatePresence>
+        {newDatabaseDialogOpen && (
+          <InputDialog
+            title="New database"
+            description="Creates an empty database you can build your own schema in."
+            placeholder="My Database"
+            confirmLabel="Create"
+            onCancel={() => setNewDatabaseDialogOpen(false)}
+            onConfirm={handleCreateDatabase}
+          />
+        )}
+        {pendingDeleteDatabaseId && (
+          <ConfirmDialog
+            title={`Delete "${userDatabases.find((d) => d.id === pendingDeleteDatabaseId)?.name ?? 'this database'}"?`}
+            description="This permanently deletes the database and all of its data."
+            confirmLabel="Delete"
+            onCancel={() => setPendingDeleteDatabaseId(null)}
+            onConfirm={() => {
+              void handleDeleteDatabase(pendingDeleteDatabaseId)
+            }}
+          />
+        )}
+        {pendingResetDatabase && (
+          <ConfirmDialog
+            title="Reset database?"
+            description="This discards all changes and restores the original preset schema and data."
+            confirmLabel="Reset"
+            onCancel={() => setPendingResetDatabase(false)}
+            onConfirm={() => {
+              void resetDatabase()
+              setPendingResetDatabase(false)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

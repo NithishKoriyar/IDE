@@ -36,6 +36,7 @@ export function SqlResultsPanel({ result, isRunning }: SqlResultsPanelProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-surface-container-lowest">
       <div className="flex items-center gap-3 border-b border-outline-variant px-3 py-1.5 text-xs text-on-surface-variant">
+        <span className="text-[11px] font-medium tracking-wide uppercase">Output</span>
         <span>
           {result.rowCount} row{result.rowCount === 1 ? '' : 's'}
         </span>

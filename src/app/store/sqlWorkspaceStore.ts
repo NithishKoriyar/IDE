@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { idbStorage } from './persistStorage'
-import { SQL_STARTER_TEMPLATE } from '../../features/editor/sql/sqlStarterTemplate'
+import { getNextPageName } from './nextPageName'
 import type { SqlLastResult, SqlPage } from '../types'
 
 interface SqlWorkspaceStore {
   pages: SqlPage[]
-  nextPageNumber: number
   createPage: () => string
   closePage: (id: string) => void
   updatePageQuery: (id: string, query: string) => void
@@ -16,20 +15,18 @@ interface SqlWorkspaceStore {
 const seedPage: SqlPage = {
   id: 'sql-page-1',
   name: 'Page 1',
-  query: SQL_STARTER_TEMPLATE,
+  query: '',
 }
 
 export const useSqlWorkspaceStore = create<SqlWorkspaceStore>()(
   persist(
     (set, get) => ({
       pages: [seedPage],
-      nextPageNumber: 2,
       createPage: () => {
-        const { nextPageNumber } = get()
-        const name = `Page ${nextPageNumber}`
+        const name = getNextPageName(get().pages)
         const id = `sql-page-${crypto.randomUUID()}`
-        const page: SqlPage = { id, name, query: SQL_STARTER_TEMPLATE }
-        set((s) => ({ pages: [...s.pages, page], nextPageNumber: s.nextPageNumber + 1 }))
+        const page: SqlPage = { id, name, query: '' }
+        set((s) => ({ pages: [...s.pages, page] }))
         return id
       },
       closePage: (id) =>

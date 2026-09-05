@@ -3,6 +3,7 @@ import { useSettingsStore } from './settingsStore'
 import { useLayoutStore } from './layoutStore'
 import { useJsWorkspaceStore } from './jsWorkspaceStore'
 import { useSqlWorkspaceStore } from './sqlWorkspaceStore'
+import { useSqlDatabasesStore } from './sqlDatabasesStore'
 
 /**
  * All persisted stores that must finish rehydrating from IndexedDB before the
@@ -14,6 +15,7 @@ const hydratableStores = [
   useLayoutStore,
   useJsWorkspaceStore,
   useSqlWorkspaceStore,
+  useSqlDatabasesStore,
 ] as const
 
 function allHydrated(): boolean {

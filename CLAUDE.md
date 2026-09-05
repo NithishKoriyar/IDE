@@ -43,15 +43,16 @@ Type-checking is via TypeScript project references: `tsconfig.json` points at `t
 
 ### State: Zustand stores persisted to IndexedDB
 
-Four stores under `src/app/store/`, each created with `zustand/persist` but backed by IndexedDB (via `idb-keyval`) instead of localStorage, through the custom `StateStorage` adapter in `persistStorage.ts`:
+Five stores under `src/app/store/`, each created with `zustand/persist` but backed by IndexedDB (via `idb-keyval`) instead of localStorage, through the custom `StateStorage` adapter in `persistStorage.ts`:
 
 - `settingsStore` — theme, editor prefs, suggestion toggles, per-language settings.
-- `layoutStore` — active language, active page id per language, resizable-panel split percentages, SQL explorer collapsed state.
-- `jsWorkspaceStore` / `sqlWorkspaceStore` — each holds a list of "pages" (tabs), where a page is `{ id, name, code/query, lastRun/lastResult }`.
+- `layoutStore` — active language, active page id per language, active SQL database id, resizable-panel split percentages, SQL explorer collapsed state.
+- `jsWorkspaceStore` / `sqlWorkspaceStore` — each holds a list of "pages" (tabs), where a page is `{ id, name, code/query, lastRun/lastResult }`. Pages are independent of which SQL database is selected -- the same query tabs run against whichever database is currently active.
+- `sqlDatabasesStore` — metadata for user-created SQL databases (`{ id, name, createdAt }`); the 3 preset databases are static (defined in code, not persisted state) and always shown alongside them. Also runs the one-time "was there a pre-multi-database SQLite file already?" migration (see below).
 
-`hydration.ts` exposes `useStoresHydrated()`, which waits on all four stores' `persist.hasHydrated()` — this exists specifically to avoid a flash of default/starter content before the restored session snaps in.
+`hydration.ts` exposes `useStoresHydrated()`, which waits on all five stores' `persist.hasHydrated()` — this exists specifically to avoid a flash of default/starter content before the restored session snaps in.
 
-The SQLite database's raw bytes are the one piece of state that deliberately bypasses this JSON-based store path (see `persistStorage.ts` comment): running it through `JSON.stringify` would balloon a `Uint8Array` into a per-byte object. Instead `sqliteEngine.ts` saves/loads the raw bytes directly via `saveSqliteBytes`/`loadSqliteBytes`, debounced 300ms after each mutating statement.
+A SQLite database's raw bytes are the one piece of state that deliberately bypasses this JSON-based store path (see `persistStorage.ts` comment): running it through `JSON.stringify` would balloon a `Uint8Array` into a per-byte object. Instead `sqliteEngine.ts` saves/loads each database's raw bytes directly via `saveDbBytes`/`loadDbBytes` (keyed by database id), debounced 300ms after each mutating statement. `persistStorage.ts` also keeps a small non-JSON `SqlDatabaseMeta` (`{ seedVersion }`) per database, used to know a preset has already been seeded.
 
 ### Run dispatch
 
@@ -63,7 +64,11 @@ The SQLite database's raw bytes are the one piece of state that deliberately byp
 
 ### SQL execution
 
-`src/features/editor/sql/sqliteEngine.ts` wraps `sql.js` (SQLite-to-WASM) as a module-level singleton (`db`/`dbReadyPromise`) — there is exactly one database instance for the whole app, lazily initialized and restored from IndexedDB bytes on first access (falling back to a genuinely empty seeded DB if none exist or the saved bytes are corrupt). `useSqlDatabase.ts` is the React-facing hook: `runQuery`/`deleteTable`/`resetDatabase` all refresh `schema`/`tables` afterward so the Database Explorer stays live. In `SqlWorkspace.tsx`, the Database Explorer's table-preview query intentionally calls `runSql` directly rather than the `runQuery` hook, to avoid re-triggering its own refresh loop — the Explorer's data view is deliberately decoupled from the query Results panel, which only ever reflects what was actually run from the editor.
+`src/features/editor/sql/sqliteEngine.ts` wraps `sql.js` (SQLite-to-WASM). Multiple named SQLite databases can exist (the 3 built-in presets plus any number of user-created ones), but only one is ever "active" at a time -- `setActiveDatabase(id)` loads (or lazily creates) that database and every other exported function (`runSql`, `getSchema`, `deleteTable`, ...) implicitly targets whichever database is currently active, so a query can never accidentally run against the wrong one. Switching flushes the outgoing database's pending debounced write first. `useSqlDatabase(databaseId)` is the React-facing hook: it calls `setActiveDatabase` when `databaseId` changes, and `runQuery`/`deleteTable`/`resetDatabase` all refresh `schema`/`tables` afterward so the Database Explorer stays live. In `SqlWorkspace.tsx`, the Database Explorer's table-preview query intentionally calls `runSql` directly rather than the `runQuery` hook, to avoid re-triggering its own refresh loop — the Explorer's data view is deliberately decoupled from the query Results panel, which only ever reflects what was actually run from the editor (and is scoped to the page/tab, not the selected database).
+
+**Preset databases** (`src/features/editor/sql/presets/`) are the maintainable, code-defined source of truth for the 3 built-in SQL-practice databases (e-commerce, employee management, SaaS appointment booking) — each is a `SqlPresetDefinition` (`{ id, name, version, schemaSql, seedTables }`) registered in `presets/index.ts`'s `SQL_PRESETS` array; adding a 4th preset means adding one more definition there. Seed data is generated as TS arrays/loops (not hand-typed SQL strings) and applied via parameterized `INSERT`s (`presets/seed.ts`), so string escaping is a non-issue. A preset is only ever seeded once: `loadOrCreateDatabase` in `sqliteEngine.ts` seeds + records `{ seedVersion }` (via `persistStorage.ts`'s `saveDbMeta`) the first time a preset's id has no saved bytes, and every later launch just loads the persisted bytes as-is (including any user edits) — this is what makes init idempotent and non-destructive across reloads. "Reset" (`resetActiveDatabaseToPreset`, gated to preset ids only) is the only path that re-seeds a preset, discarding whatever was there.
+
+The app shipped with a single always-present SQLite database before preset databases existed. To avoid losing that data on upgrade, its bytes stay under the original IndexedDB key (`LEGACY_DEFAULT_DATABASE_ID` in `persistStorage.ts` maps to that key instead of a new per-id one), and `sqlDatabasesStore.ensureLegacyMigration()` — called once from `AppShell` after stores hydrate — registers it as an ordinary user database (named "My Database") the first time it finds bytes there.
 
 ### Editor
 

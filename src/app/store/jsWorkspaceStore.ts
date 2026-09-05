@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { idbStorage } from './persistStorage'
+import { getNextPageName } from './nextPageName'
 import { getJsStarterTemplate } from '../../features/editor/javascript/jsStarterTemplate'
 import type { JsPage, JsRunSummary } from '../types'
 
 interface JsWorkspaceStore {
   pages: JsPage[]
-  nextPageNumber: number
   createPage: () => string
   closePage: (id: string) => void
   updatePageCode: (id: string, code: string) => void
@@ -23,13 +23,11 @@ export const useJsWorkspaceStore = create<JsWorkspaceStore>()(
   persist(
     (set, get) => ({
       pages: [seedPage],
-      nextPageNumber: 2,
       createPage: () => {
-        const { nextPageNumber } = get()
-        const name = `Page ${nextPageNumber}`
+        const name = getNextPageName(get().pages)
         const id = `js-page-${crypto.randomUUID()}`
         const page: JsPage = { id, name, code: getJsStarterTemplate(name) }
-        set((s) => ({ pages: [...s.pages, page], nextPageNumber: s.nextPageNumber + 1 }))
+        set((s) => ({ pages: [...s.pages, page] }))
         return id
       },
       closePage: (id) =>

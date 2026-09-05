@@ -10,6 +10,7 @@ import {
   dropCursor,
   rectangularSelection,
   crosshairCursor,
+  placeholder as placeholderExtension,
 } from '@codemirror/view'
 import {
   defaultKeymap,
@@ -45,6 +46,8 @@ interface CodeMirrorEditorProps {
   languageExtension: Extension
   onRun?: () => void
   className?: string
+  /** Ghost text shown only while the document is empty -- never inserted into the value. */
+  placeholder?: string
 }
 
 /** Always-on editor behavior that isn't user-configurable (kept simple and
@@ -67,6 +70,7 @@ export function CodeMirrorEditor({
   languageExtension,
   onRun,
   className,
+  placeholder,
 }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -84,6 +88,7 @@ export function CodeMirrorEditor({
     lineNumbers: new Compartment(),
     autocomplete: new Compartment(),
     fontAppearance: new Compartment(),
+    placeholder: new Compartment(),
   }).current
 
   const settings = useSettingsStore((s) => s.editor)
@@ -111,6 +116,7 @@ export function CodeMirrorEditor({
         ? autocompletion({ activateOnTyping: true })
         : []) as Extension,
       fontAppearance: buildFontAppearance(settings.fontFamily, settings.fontSize),
+      placeholder: (placeholder ? placeholderExtension(placeholder) : []) as Extension,
     }
   }
 
@@ -129,6 +135,7 @@ export function CodeMirrorEditor({
         compartments.lineNumbers.of(raw.lineNumbers),
         compartments.autocomplete.of(raw.autocomplete),
         compartments.fontAppearance.of(raw.fontAppearance),
+        compartments.placeholder.of(raw.placeholder),
         staticEditorBehavior,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         indentationMarkers(),
@@ -194,10 +201,11 @@ export function CodeMirrorEditor({
         compartments.lineNumbers.reconfigure(raw.lineNumbers),
         compartments.autocomplete.reconfigure(raw.autocomplete),
         compartments.fontAppearance.reconfigure(raw.fontAppearance),
+        compartments.placeholder.reconfigure(raw.placeholder),
       ],
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theme, settings, suggestions, languageExtension])
+  }, [theme, settings, suggestions, languageExtension, placeholder])
 
   // Sync external value changes (e.g. Format Code) that didn't originate from this view's own typing.
   useEffect(() => {

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  getDatabase,
   getSchema,
   getTableRowCounts,
   deleteTable as engineDeleteTable,
-  resetDemoDatabase as engineResetDemoDatabase,
+  resetActiveDatabaseToPreset,
   runSql,
+  setActiveDatabase,
   type SqlRunResult,
   type SqlSchema,
   type TableInfo,
@@ -21,8 +21,10 @@ interface UseSqlDatabaseResult {
   resetDatabase: () => Promise<void>
 }
 
-/** React wrapper around the sql.js singleton service -- schema/tables refresh after every run/mutation. */
-export function useSqlDatabase(): UseSqlDatabaseResult {
+/** React wrapper around the sql.js singleton service -- schema/tables refresh
+ * after every run/mutation, and switching `databaseId` loads (or seeds) that
+ * database and makes it the one `runSql`/etc. operate against. */
+export function useSqlDatabase(databaseId: string): UseSqlDatabaseResult {
   const [isReady, setIsReady] = useState(false)
   const [schema, setSchema] = useState<SqlSchema>({})
   const [tables, setTables] = useState<TableInfo[]>([])
@@ -35,8 +37,9 @@ export function useSqlDatabase(): UseSqlDatabaseResult {
 
   useEffect(() => {
     let cancelled = false
+    setIsReady(false)
     void (async () => {
-      await getDatabase()
+      await setActiveDatabase(databaseId)
       if (cancelled) return
       setIsReady(true)
       await refreshTables()
@@ -44,7 +47,7 @@ export function useSqlDatabase(): UseSqlDatabaseResult {
     return () => {
       cancelled = true
     }
-  }, [refreshTables])
+  }, [databaseId, refreshTables])
 
   const runQuery = useCallback(
     async (sql: string) => {
@@ -64,7 +67,7 @@ export function useSqlDatabase(): UseSqlDatabaseResult {
   )
 
   const resetDatabase = useCallback(async () => {
-    await engineResetDemoDatabase()
+    await resetActiveDatabaseToPreset()
     await refreshTables()
   }, [refreshTables])
 

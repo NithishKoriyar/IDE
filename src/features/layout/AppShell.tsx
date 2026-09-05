@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { useStoresHydrated } from '../../app/store/hydration'
 import { useSettingsStore } from '../../app/store/settingsStore'
 import { useLayoutStore } from '../../app/store/layoutStore'
+import { useSqlDatabasesStore } from '../../app/store/sqlDatabasesStore'
 import { initStoragePersistence } from '../../app/store/persistStorage'
 import { useIsDesktop } from './useIsDesktop'
 import { Header } from './Header'
@@ -44,6 +45,13 @@ export function AppShell() {
   useEffect(() => {
     initStoragePersistence()
   }, [])
+
+  // Runs once the sqlDatabasesStore has rehydrated (part of `hydrated`), so its
+  // persisted `legacyMigrationDone` flag reflects reality before this checks it.
+  useEffect(() => {
+    if (!hydrated) return
+    void useSqlDatabasesStore.getState().ensureLegacyMigration()
+  }, [hydrated])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme

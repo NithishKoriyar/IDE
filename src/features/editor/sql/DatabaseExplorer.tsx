@@ -15,7 +15,18 @@ interface DatabaseExplorerProps {
   onSelectTable: (name: string) => void
   onDeleteTable: (name: string) => void
   onRefresh: () => void | Promise<void>
-  onResetDatabase: () => void
+  /** Opens the reset confirmation -- the actual reset + dialog are owned by the
+   * parent, since the mobile bottom sheet also needs to trigger it from its own header. */
+  onRequestReset: () => void
+  /** True for the 3 built-in preset databases: shows Reset (restores the
+   * original seed data) and hides the per-table quick-delete "x" (their
+   * schema is curated -- Reset is the only sanctioned way to drop a table).
+   * User databases get the opposite: no Reset, but full add/delete control. */
+  canReset: boolean
+  /** Hides this component's own "Tables" label and Refresh/Reset icon buttons --
+   * used inside the mobile bottom sheet, whose title already reads "Tables" and
+   * which renders Refresh/Reset (with text labels) in its own header instead. */
+  hideOwnHeaderControls?: boolean
 }
 
 const MIN_REFRESH_SPIN_MS = 400
@@ -28,10 +39,11 @@ export function DatabaseExplorer({
   onSelectTable,
   onDeleteTable,
   onRefresh,
-  onResetDatabase,
+  onRequestReset,
+  canReset,
+  hideOwnHeaderControls,
 }: DatabaseExplorerProps) {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
-  const [pendingReset, setPendingReset] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const handleRefreshClick = async () => {
@@ -46,9 +58,11 @@ export function DatabaseExplorer({
   return (
     <div className="flex h-full flex-col bg-surface-container-low">
       <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant px-2 py-1.5">
-        <span className="shrink-0 px-1 text-[11px] font-medium tracking-wide text-on-surface-variant uppercase">
-          Tables
-        </span>
+        {!hideOwnHeaderControls && (
+          <span className="shrink-0 px-1 text-[11px] font-medium tracking-wide text-on-surface-variant uppercase">
+            Tables
+          </span>
+        )}
         <div className="flex flex-1 flex-wrap items-center gap-1 overflow-x-auto">
           {tables.map((t) => (
             <div
@@ -64,39 +78,50 @@ export function DatabaseExplorer({
                 {t.name}
                 <span className="text-on-surface-variant">({t.rowCount})</span>
               </button>
-              <button
-                type="button"
-                aria-label={`Delete ${t.name}`}
-                onClick={() => setPendingDelete(t.name)}
-                className="text-on-surface-variant opacity-0 hover:text-error group-hover:opacity-100"
-              >
-                <X size={12} />
-              </button>
+              {/* Preset tables are curated schema -- only Reset should remove them; user databases can drop tables freely. */}
+              {!canReset && (
+                <button
+                  type="button"
+                  aria-label={`Delete ${t.name}`}
+                  onClick={() => setPendingDelete(t.name)}
+                  className="text-on-surface-variant opacity-0 hover:text-error group-hover:opacity-100"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           ))}
           {tables.length === 0 && <span className="text-xs text-on-surface-variant">No tables yet</span>}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void handleRefreshClick()
-          }}
-          disabled={isRefreshing}
-          aria-label="Refresh table list"
-          title="Refresh table list (does not remove data)"
-          className="shrink-0 rounded-md p-1.5 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface disabled:opacity-60"
-        >
-          <RefreshCw size={14} className={clsx(isRefreshing && 'animate-spin')} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setPendingReset(true)}
-          aria-label="Reset demo database"
-          title="Reset demo database"
-          className="shrink-0 rounded-md p-1.5 text-on-surface-variant hover:bg-error-container/20 hover:text-error"
-        >
-          <RotateCcw size={14} />
-        </button>
+        {!hideOwnHeaderControls && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                void handleRefreshClick()
+              }}
+              disabled={isRefreshing}
+              aria-label="Refresh table list"
+              title="Refresh table list (does not remove data)"
+              className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface disabled:opacity-60"
+            >
+              <RefreshCw size={14} className={clsx(isRefreshing && 'animate-spin')} />
+              Refresh
+            </button>
+            {canReset && (
+              <button
+                type="button"
+                onClick={onRequestReset}
+                aria-label="Reset database"
+                title="Reset database to its original preset data"
+                className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-error-container/20 hover:text-error"
+              >
+                <RotateCcw size={14} />
+                Reset
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-surface-container-lowest font-mono text-xs">
@@ -121,18 +146,6 @@ export function DatabaseExplorer({
             onConfirm={() => {
               onDeleteTable(pendingDelete)
               setPendingDelete(null)
-            }}
-          />
-        )}
-        {pendingReset && (
-          <ConfirmDialog
-            title="Reset demo database?"
-            description="This deletes all tables and data and recreates an empty database."
-            confirmLabel="Reset"
-            onCancel={() => setPendingReset(false)}
-            onConfirm={() => {
-              onResetDatabase()
-              setPendingReset(false)
             }}
           />
         )}
