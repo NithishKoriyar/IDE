@@ -45,6 +45,22 @@ export const useLayoutStore = create<LayoutStore>()(
     {
       name: 'localide:layout',
       storage: createJSONStorage(() => idbStorage),
+      // `activeLanguage` is deliberately excluded -- the app should always open on
+      // JavaScript, not resume whichever language tab was last active.
+      partialize: (state) => ({
+        activeJsPageId: state.activeJsPageId,
+        activeSqlPageId: state.activeSqlPageId,
+        activeSqlDatabaseId: state.activeSqlDatabaseId,
+        panelSizes: state.panelSizes,
+        isSqlExplorerCollapsed: state.isSqlExplorerCollapsed,
+      }),
+      // One-time correction for browsers that already have an old saved
+      // `activeLanguage` from before it was excluded above -- without this,
+      // that stale value would still win for one more reload before the
+      // exclusion above naturally drops it on the next write.
+      onRehydrateStorage: () => (state) => {
+        state?.setActiveLanguage('javascript')
+      },
     },
   ),
 )
