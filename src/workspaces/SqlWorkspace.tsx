@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Group, Panel, Separator, type LayoutChangedMeta, type Layout } from 'react-resizable-panels'
 import { AnimatePresence } from 'motion/react'
-import { Play, Table2, Sparkles, RefreshCw, RotateCcw } from 'lucide-react'
+import { Play, Table2, Sparkles, RefreshCw, RotateCcw, Copy, Check } from 'lucide-react'
 import clsx from 'clsx'
 import { useSqlWorkspaceStore } from '../app/store/sqlWorkspaceStore'
 import { useLayoutStore } from '../app/store/layoutStore'
@@ -9,6 +9,7 @@ import { useSettingsStore } from '../app/store/settingsStore'
 import { useSqlDatabasesStore } from '../app/store/sqlDatabasesStore'
 import { registerRunHandler } from '../app/runRegistry'
 import { useIsDesktop } from '../features/layout/useIsDesktop'
+import { useCopyToClipboard } from '../features/layout/useCopyToClipboard'
 import { PageTabs } from '../features/layout/PageTabs'
 import { BottomSheet } from '../features/layout/BottomSheet'
 import { MobileActionBar, MobileActionButton } from '../features/layout/MobileActionBar'
@@ -152,6 +153,7 @@ export function SqlWorkspace() {
   const { isReady, schema, tables, runQuery, refreshTables, deleteTable, resetDatabase } =
     useSqlDatabase(activeDatabaseId)
   const canResetDatabase = isPresetDatabaseId(activeDatabaseId)
+  const { copied, copy } = useCopyToClipboard()
 
   const handleRun = useCallback(async () => {
     if (!isReady) return
@@ -272,7 +274,7 @@ export function SqlWorkspace() {
             'flex shrink-0 items-center gap-2 pr-2',
             // On mobile this becomes its own full-width row, spread edge-to-edge:
             // DatabaseSelector at the left (its dropdown opens left-anchored/
-            // rightward there) and Format at the right.
+            // rightward there) and the Copy+Format group at the right.
             !isDesktop && 'w-full justify-between border-t border-outline-variant py-1',
           )}
         >
@@ -283,14 +285,26 @@ export function SqlWorkspace() {
             onCreateNew={() => setNewDatabaseDialogOpen(true)}
             onDeleteUserDatabase={setPendingDeleteDatabaseId}
           />
-          <button
-            type="button"
-            onClick={handleFormat}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-          >
-            <Sparkles size={13} />
-            Format
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void copy(query)
+              }}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+            <button
+              type="button"
+              onClick={handleFormat}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+            >
+              <Sparkles size={13} />
+              Format
+            </button>
+          </div>
         </div>
       </div>
 

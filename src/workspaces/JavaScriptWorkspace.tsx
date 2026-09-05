@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Group, Panel, Separator, type LayoutChangedMeta, type Layout } from 'react-resizable-panels'
 import { AnimatePresence } from 'motion/react'
-import { Play, Sparkles } from 'lucide-react'
+import { Play, Sparkles, Copy, Check } from 'lucide-react'
 import { javascript } from '@codemirror/lang-javascript'
 import { useJsWorkspaceStore } from '../app/store/jsWorkspaceStore'
 import { useLayoutStore } from '../app/store/layoutStore'
 import { useSettingsStore } from '../app/store/settingsStore'
 import { registerRunHandler } from '../app/runRegistry'
 import { useIsDesktop } from '../features/layout/useIsDesktop'
+import { useCopyToClipboard } from '../features/layout/useCopyToClipboard'
 import { PageTabs } from '../features/layout/PageTabs'
 import { BottomSheet } from '../features/layout/BottomSheet'
 import { MobileActionBar, MobileActionButton } from '../features/layout/MobileActionBar'
@@ -73,6 +74,7 @@ export function JavaScriptWorkspace() {
 
   const { entries, isRunning, run } = useRunJavaScript((summary) => setPageLastRun(activePage.id, summary))
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const { copied, copy } = useCopyToClipboard()
 
   const handleRun = useCallback(async () => {
     let toRun = code
@@ -140,14 +142,26 @@ export function JavaScriptWorkspace() {
           onCreate={() => setActiveJsPageId(createPage())}
           onClose={handleClosePage}
         />
-        <button
-          type="button"
-          onClick={handleFormat}
-          className="mr-2 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-        >
-          <Sparkles size={13} />
-          Format
-        </button>
+        <div className="mr-2 flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void copy(code)
+            }}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button
+            type="button"
+            onClick={handleFormat}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          >
+            <Sparkles size={13} />
+            Format
+          </button>
+        </div>
       </div>
 
       {isDesktop ? (
